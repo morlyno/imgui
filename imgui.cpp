@@ -1044,7 +1044,7 @@ static const float DOCKING_TRANSPARENT_PAYLOAD_ALPHA        = 0.50f;    // For u
 
 static void             SetCurrentWindow(ImGuiWindow* window);
 static void             FindHoveredWindow();
-static ImGuiWindow*     CreateNewWindow(const char* name, ImGuiWindowFlags flags);
+static ImGuiWindow*     CreateNewWindow(const char* name, ImGuiID id, ImGuiWindowFlags flags);
 static ImVec2           CalcNextScrollFromScrollTargetAndClamp(ImGuiWindow* window);
 
 static void             AddWindowToSortBuffer(ImVector<ImGuiWindow*>* out_sorted_windows, ImGuiWindow* window);
@@ -3809,13 +3809,13 @@ void ImGui::CallContextHooks(ImGuiContext* ctx, ImGuiContextHookType hook_type)
 //-----------------------------------------------------------------------------
 
 // ImGuiWindow is mostly a dumb struct. It merely has a constructor and a few helper methods
-ImGuiWindow::ImGuiWindow(ImGuiContext* ctx, const char* name) : DrawListInst(NULL)
+ImGuiWindow::ImGuiWindow(ImGuiContext* ctx, const char* name, ImGuiID id) : DrawListInst(NULL)
 {
     memset(this, 0, sizeof(*this));
     Ctx = ctx;
     Name = ImStrdup(name);
     NameBufLen = (int)strlen(name) + 1;
-    ID = ImHashStr(name);
+    ID = id;
     IDStack.push_back(ID);
     ViewportAllowPlatformMonitorExtend = -1;
     ViewportPos = ImVec2(FLT_MAX, FLT_MAX);
@@ -5872,12 +5872,12 @@ static void InitOrLoadWindowSettings(ImGuiWindow* window, ImGuiWindowSettings* s
     }
 }
 
-static ImGuiWindow* CreateNewWindow(const char* name, ImGuiWindowFlags flags)
+static ImGuiWindow* CreateNewWindow(const char* name, ImGuiID id, ImGuiWindowFlags flags)
 {
     // Create window the first time
     //IMGUI_DEBUG_LOG("CreateNewWindow '%s', flags = 0x%08X\n", name, flags);
     ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = IM_NEW(ImGuiWindow)(&g, name);
+    ImGuiWindow* window = IM_NEW(ImGuiWindow)(&g, name, id);
     window->Flags = flags;
     g.WindowsById.SetVoidPtr(window->ID, window);
 
@@ -6583,14 +6583,7 @@ ImGuiWindow* ImGui::FindBlockingModal(ImGuiWindow* window)
     return NULL;
 }
 
-// Push a new Dear ImGui window to add widgets to.
-// - A default window called "Debug" is automatically stacked at the beginning of every frame so you can use widgets without explicitly calling a Begin/End pair.
-// - Begin/End can be called multiple times during the frame with the same window name to append content.
-// - The window name is used as a unique identifier to preserve window information across frames (and save rudimentary information to the .ini file).
-//   You can use the "##" or "###" markers to use the same label with different id, or same id with different label. See documentation at the top of this file.
-// - Return false when window is collapsed, so you can early out in your code. You always need to call ImGui::End() even if false is returned.
-// - Passing 'bool* p_open' displays a Close button on the upper-right corner of the window, the pointed value will be set to false when the button is pressed.
-bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
+bool ImGui::BeginEx(const char* name, ImGuiID id, bool* p_open, ImGuiWindowFlags flags)
 {
     ImGuiContext& g = *GImGui;
     const ImGuiStyle& style = g.Style;
@@ -6599,10 +6592,10 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
     IM_ASSERT(g.FrameCountEnded != g.FrameCount);   // Called ImGui::Render() or ImGui::EndFrame() and haven't called ImGui::NewFrame() again yet
 
     // Find or create
-    ImGuiWindow* window = FindWindowByName(name);
+    ImGuiWindow* window = FindWindowByID(id);
     const bool window_just_created = (window == NULL);
     if (window_just_created)
-        window = CreateNewWindow(name, flags);
+        window = CreateNewWindow(name, id, flags);
 
     // Automatically disable manual moving/resizing when NoInputs is set
     if ((flags & ImGuiWindowFlags_NoInputs) == ImGuiWindowFlags_NoInputs)
@@ -7235,7 +7228,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         // This is used by clipper to compensate and fix the most common use case of large scroll area. Easy and cheap, next best thing compared to switching everything to double or ImU64.
         double start_pos_highp_x = (double)window->Pos.x + window->WindowPadding.x - (double)window->Scroll.x + window->DecoOuterSizeX1 + window->DC.ColumnsOffset.x;
         double start_pos_highp_y = (double)window->Pos.y + window->WindowPadding.y - (double)window->Scroll.y + window->DecoOuterSizeY1;
-        window->DC.CursorStartPos  = ImVec2((float)start_pos_highp_x, (float)start_pos_highp_y);
+        window->DC.CursorStartPos = ImVec2((float)start_pos_highp_x, (float)start_pos_highp_y);
         window->DC.CursorStartPosLossyness = ImVec2((float)(start_pos_highp_x - window->DC.CursorStartPos.x), (float)(start_pos_highp_y - window->DC.CursorStartPos.y));
         window->DC.CursorPos = window->DC.CursorStartPos;
         window->DC.CursorPosPrevLine = window->DC.CursorPos;
@@ -7374,7 +7367,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         {
             // Child window can be out of sight and have "negative" clip windows.
             // Mark them as collapsed so commands are skipped earlier (we can't manually collapse them because they have no title bar).
-            IM_ASSERT((flags& ImGuiWindowFlags_NoTitleBar) != 0 || (window->DockIsActive));
+            IM_ASSERT((flags & ImGuiWindowFlags_NoTitleBar) != 0 || (window->DockIsActive));
             if (!(flags & ImGuiWindowFlags_AlwaysAutoResize) && window->AutoFitFramesX <= 0 && window->AutoFitFramesY <= 0) // FIXME: Doesn't make sense for ChildWindow??
             {
                 const bool nav_request = (flags & ImGuiWindowFlags_NavFlattened) && (g.NavAnyRequest && g.NavWindow && g.NavWindow->RootWindowForNav == window->RootWindowForNav);
@@ -7433,6 +7426,18 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
     }
 
     return !window->SkipItems;
+}
+
+// Push a new Dear ImGui window to add widgets to.
+// - A default window called "Debug" is automatically stacked at the beginning of every frame so you can use widgets without explicitly calling a Begin/End pair.
+// - Begin/End can be called multiple times during the frame with the same window name to append content.
+// - The window name is used as a unique identifier to preserve window information across frames (and save rudimentary information to the .ini file).
+//   You can use the "##" or "###" markers to use the same label with different id, or same id with different label. See documentation at the top of this file.
+// - Return false when window is collapsed, so you can early out in your code. You always need to call ImGui::End() even if false is returned.
+// - Passing 'bool* p_open' displays a Close button on the upper-right corner of the window, the pointed value will be set to false when the button is pressed.
+bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
+{
+    return BeginEx(name, ImHashStr(name), p_open, flags);
 }
 
 void ImGui::End()

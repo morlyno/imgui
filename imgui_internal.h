@@ -2641,7 +2641,7 @@ struct IMGUI_API ImGuiWindow
     ImRect                  DockTabItemRect;
 
 public:
-    ImGuiWindow(ImGuiContext* context, const char* name);
+    ImGuiWindow(ImGuiContext* context, const char* name, ImGuiID id);
     ~ImGuiWindow();
 
     ImGuiID     GetID(const char* str, const char* str_end = NULL);
@@ -3155,6 +3155,7 @@ namespace ImGui
     IMGUI_API void          LogSetNextTextDecoration(const char* prefix, const char* suffix);
 
     // Popups, Modals, Tooltips
+    IMGUI_API bool          BeginEx(const char* name, ImGuiID id, bool* p_open, ImGuiWindowFlags flags);
     IMGUI_API bool          BeginChildEx(const char* name, ImGuiID id, const ImVec2& size_arg, bool border, ImGuiWindowFlags flags);
     IMGUI_API void          OpenPopupEx(ImGuiID id, ImGuiPopupFlags popup_flags = ImGuiPopupFlags_None);
     IMGUI_API void          ClosePopupToLevel(int remaining, bool restore_focus_to_window_under_popup);
