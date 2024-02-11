@@ -21,6 +21,12 @@ project "ImGui"
 		"imgui_demo.cpp"
 	}
 	
+	defines
+	{
+		"IMGUI_DISABLE_OBSOLETE_FUNCTIONS",
+		"IMGUI_DISABLE_OBSOLETE_KEYIO"
+	}
+
 	filter "system:windows"
         systemversion "latest"
         
