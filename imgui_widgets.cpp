@@ -2465,6 +2465,10 @@ bool ImGui::DragScalar(const char* label, ImGuiDataType data_type, void* p_data,
     if (!ItemAdd(total_bb, id, &frame_bb, temp_input_allowed ? ImGuiItemFlags_Inputable : 0))
         return false;
 
+    bool mixed_value = (g.LastItemData.InFlags & ImGuiItemFlags_MixedValue) != 0;
+    if (mixed_value)
+        format = "--";
+
     // Default format string when passing NULL
     if (format == NULL)
         format = DataTypeGetInfo(data_type)->PrintFmt;
@@ -3477,8 +3481,11 @@ bool ImGui::TempInputScalar(const ImRect& bb, ImGuiID id, const char* label, ImG
             DataTypeClamp(data_type, p_data, p_clamp_min, p_clamp_max);
         }
 
-        // Only mark as edited if new value is different
-        value_changed = memcmp(&data_backup, p_data, data_type_size) != 0;
+        // Mark as edited if value is mixed or new value is different
+        ImGuiContext& g = *GImGui;
+        bool mixed_value = (g.LastItemData.InFlags & ImGuiItemFlags_MixedValue) != 0;
+        value_changed = mixed_value || memcmp(&data_backup, p_data, data_type_size) != 0;
+
         if (value_changed)
             MarkItemEdited(id);
     }
@@ -5036,7 +5043,18 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
         else if (!is_displaying_hint)
             buf_display_end = buf_display + strlen(buf_display);
 
-        if (is_multiline || (buf_display_end - buf_display) < buf_display_max_length)
+        bool mixed_value = (g.LastItemData.InFlags & ImGuiItemFlags_MixedValue) != 0;
+        if (mixed_value)
+        {
+            ImU32 col = GetColorU32(is_displaying_hint ? ImGuiCol_TextDisabled : ImGuiCol_Text);
+            const char* mixed_value_hint = "--";
+
+            ImVec2 mixed_value_hint_size = CalcTextSize(mixed_value_hint);
+            ImVec2 mixed_hint_draw_pos = ImVec2(draw_pos.x + frame_bb.GetWidth() * 0.5f - mixed_value_hint_size.x * 0.5f, draw_pos.y);
+
+            draw_window->DrawList->AddText(g.Font, g.FontSize, mixed_hint_draw_pos, col, mixed_value_hint, mixed_value_hint + 2, 0.0f, is_multiline ? NULL : &clip_rect);
+        }
+        else if (is_multiline || (buf_display_end - buf_display) < buf_display_max_length)
         {
             ImU32 col = GetColorU32(is_displaying_hint ? ImGuiCol_TextDisabled : ImGuiCol_Text);
             draw_window->DrawList->AddText(g.Font, g.FontSize, draw_pos, col, buf_display, buf_display_end, 0.0f, is_multiline ? NULL : &clip_rect);
