@@ -6,8 +6,7 @@ project "ImGui"
 	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
 
-    files
-    {
+    files {
 		"imconfig.h",
 		"imgui.h",
 		"imgui.cpp",
@@ -20,9 +19,16 @@ project "ImGui"
 		"imstb_truetype.h",
 		"imgui_demo.cpp",
 
+		"misc/cpp/imgui_stdlib.h",
+		"misc/cpp/imgui_stdlib.cpp",
+
 		"imgui_stacklayout.h",
 		"imgui_stacklayout.cpp",
 		"imgui_stacklayout_internal.h"
+	}
+
+	includedirs {
+		"./"
 	}
 
 	filter "system:windows"
